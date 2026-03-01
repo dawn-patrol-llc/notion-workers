@@ -1,0 +1,14 @@
+{
+  "name": "notion-workers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A collection of Notion Workers that extend Notion agents with third-party API integrations",
+  "scripts": {
+    "build": "pnpm -r build",
+    "check": "pnpm -r check"
+  },
+  "keywords": ["notion", "notion-workers", "notion-agents", "mercury", "invoicing"],
+  "author": "Dawn Patrol",
+  "license": "MIT",
+  "packageManager": "pnpm@10.22.0"
+}
