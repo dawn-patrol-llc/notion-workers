@@ -9,6 +9,8 @@ Each worker in the `workers/` directory is a standalone Notion Worker that can b
 | Worker | Description |
 |--------|-------------|
 | [mercury-invoices](./workers/mercury-invoices/) | Create and manage invoices through the Mercury banking API |
+| [toggl-time](./workers/toggl-time/) | Toggl time tracking, billable hours reporting, and invoice generation |
+| [time-calc](./workers/time-calc/) | Time format conversions (HH:MM:SS / decimal) and billable amount calculations |
 
 ## Prerequisites
 
@@ -41,7 +43,9 @@ notion-workers/
 ├── pnpm-workspace.yaml     # Defines workers/* as workspace packages
 ├── tsconfig.base.json      # Shared TypeScript configuration
 └── workers/
-    └── mercury-invoices/   # Mercury invoicing worker
+    ├── mercury-invoices/   # Mercury invoicing worker
+    ├── toggl-time/         # Toggl time tracking worker
+    └── time-calc/          # Time calculation utilities worker
 ```
 
 ## Adding a New Worker

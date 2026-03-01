@@ -18,6 +18,26 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  workers/time-calc:
+    dependencies:
+      '@notionhq/workers':
+        specifier: latest
+        version: 0.0.85(@notionhq/client@2.3.0)
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  workers/toggl-time:
+    dependencies:
+      '@notionhq/workers':
+        specifier: latest
+        version: 0.0.85(@notionhq/client@2.3.0)
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
 packages:
 
   '@notionhq/client@2.3.0':
