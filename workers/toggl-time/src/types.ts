@@ -67,6 +67,20 @@ export interface PersonBillingSummary {
   billableAmountFormatted: string;
 }
 
+export interface ProjectBillingSummary {
+  projectId: number | null;
+  projectName: string;
+  totalSeconds: number;
+  totalHoursDecimal: string;
+  totalHoursFormatted: string;
+  billableSeconds: number;
+  billableHoursDecimal: string;
+  billableHoursFormatted: string;
+  billableAmountCents: number;
+  billableAmountFormatted: string;
+  persons: PersonBillingSummary[];
+}
+
 export interface ClientBillingSummary {
   clientId: number | null;
   clientName: string;
@@ -78,6 +92,7 @@ export interface ClientBillingSummary {
   billableHoursFormatted: string;
   billableAmountCents: number;
   billableAmountFormatted: string;
+  projects: ProjectBillingSummary[];
   persons: PersonBillingSummary[];
 }
 

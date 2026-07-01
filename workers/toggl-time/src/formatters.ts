@@ -104,11 +104,16 @@ function formatInvoiceAsText(report: MonthlyInvoiceReport): string {
     lines.push(`  Hours: ${client.billableHoursDecimal} | Amount: ${client.billableAmountFormatted}`);
     lines.push("");
 
-    for (const person of client.persons) {
-      lines.push(`  ${person.name}`);
-      lines.push(`    Hours: ${person.billableHoursDecimal} (${person.billableHoursFormatted})`);
-      lines.push(`    Rate: ${person.hourlyRateFormatted}`);
-      lines.push(`    Amount: ${person.billableAmountFormatted}`);
+    for (const project of client.projects) {
+      lines.push(`  --- ${project.projectName} ---`);
+      lines.push(`    Hours: ${project.billableHoursDecimal} | Amount: ${project.billableAmountFormatted}`);
+
+      for (const person of project.persons) {
+        lines.push(`    ${person.name}`);
+        lines.push(`      Hours: ${person.billableHoursDecimal} (${person.billableHoursFormatted})`);
+        lines.push(`      Rate: ${person.hourlyRateFormatted}`);
+        lines.push(`      Amount: ${person.billableAmountFormatted}`);
+      }
       lines.push("");
     }
   }
@@ -138,13 +143,20 @@ function formatInvoiceAsMarkdown(report: MonthlyInvoiceReport): string {
     lines.push("");
     lines.push(`**Subtotal:** ${client.billableHoursDecimal} hours | ${client.billableAmountFormatted}`);
     lines.push("");
-    lines.push("| Person | Hours | Hours (HH:MM:SS) | Rate | Amount |");
-    lines.push("|--------|-------|------------------|------|--------|");
 
-    for (const person of client.persons) {
-      lines.push(`| ${person.name} | ${person.billableHoursDecimal} | ${person.billableHoursFormatted} | ${person.hourlyRateFormatted} | ${person.billableAmountFormatted} |`);
+    for (const project of client.projects) {
+      lines.push(`### ${project.projectName}`);
+      lines.push("");
+      lines.push(`**Subtotal:** ${project.billableHoursDecimal} hours | ${project.billableAmountFormatted}`);
+      lines.push("");
+      lines.push("| Person | Hours | Hours (HH:MM:SS) | Rate | Amount |");
+      lines.push("|--------|-------|------------------|------|--------|");
+
+      for (const person of project.persons) {
+        lines.push(`| ${person.name} | ${person.billableHoursDecimal} | ${person.billableHoursFormatted} | ${person.hourlyRateFormatted} | ${person.billableAmountFormatted} |`);
+      }
+      lines.push("");
     }
-    lines.push("");
   }
 
   return lines.join("\n");

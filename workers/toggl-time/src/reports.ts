@@ -3,6 +3,7 @@ import type {
   MonthlyInvoiceReport,
   BillableSummary,
   ClientBillingSummary,
+  ProjectBillingSummary,
   PersonBillingSummary,
 } from "./types.js";
 import {
@@ -38,7 +39,8 @@ export function buildInvoiceReport(
   workspace: MonthlyInvoiceReport["workspace"],
   userMap: Map<number, string>,
   clientMap: Map<number, string>,
-  projectToClientMap: Map<number, number | null>
+  projectToClientMap: Map<number, number | null>,
+  projectMap: Map<number, string>
 ): MonthlyInvoiceReport {
   interface PersonData {
     totalSeconds: number;
@@ -47,25 +49,35 @@ export function buildInvoiceReport(
     hourlyRateCents: number | null;
   }
 
-  interface ClientData {
+  interface ProjectData {
     persons: Map<number, PersonData>;
+  }
+
+  interface ClientData {
+    projects: Map<number | null, ProjectData>;
   }
 
   const clientGroups = new Map<number | null, ClientData>();
 
   for (const entry of entries) {
-    const clientId = entry.project_id
-      ? projectToClientMap.get(entry.project_id) ?? null
-      : null;
+    const projectId = entry.project_id ?? null;
+    const clientId =
+      projectId !== null ? projectToClientMap.get(projectId) ?? null : null;
 
     if (!clientGroups.has(clientId)) {
-      clientGroups.set(clientId, { persons: new Map() });
+      clientGroups.set(clientId, { projects: new Map() });
     }
 
     const clientData = clientGroups.get(clientId)!;
 
-    if (!clientData.persons.has(entry.user_id)) {
-      clientData.persons.set(entry.user_id, {
+    if (!clientData.projects.has(projectId)) {
+      clientData.projects.set(projectId, { persons: new Map() });
+    }
+
+    const projectData = clientData.projects.get(projectId)!;
+
+    if (!projectData.persons.has(entry.user_id)) {
+      projectData.persons.set(entry.user_id, {
         totalSeconds: 0,
         billableSeconds: 0,
         billableAmountCents: 0,
@@ -73,7 +85,7 @@ export function buildInvoiceReport(
       });
     }
 
-    const personData = clientData.persons.get(entry.user_id)!;
+    const personData = projectData.persons.get(entry.user_id)!;
     const entrySeconds = getEntrySeconds(entry);
     personData.totalSeconds += entrySeconds;
 
@@ -86,44 +98,106 @@ export function buildInvoiceReport(
     }
   }
 
+  const buildPerson = (
+    userId: number,
+    personData: PersonData
+  ): PersonBillingSummary => ({
+    userId,
+    name: userMap.get(userId) ?? `User ${userId}`,
+    totalSeconds: personData.totalSeconds,
+    totalHoursDecimal: secondsToHoursDecimal(personData.totalSeconds),
+    totalHoursFormatted: secondsToHHMMSS(personData.totalSeconds),
+    billableSeconds: personData.billableSeconds,
+    billableHoursDecimal: secondsToHoursDecimal(personData.billableSeconds),
+    billableHoursFormatted: secondsToHHMMSS(personData.billableSeconds),
+    hourlyRateCents: personData.hourlyRateCents,
+    hourlyRateFormatted: personData.hourlyRateCents
+      ? centsToAmount(personData.hourlyRateCents, workspace.currency) + "/hr"
+      : "N/A",
+    billableAmountCents: personData.billableAmountCents,
+    billableAmountFormatted: centsToAmount(
+      personData.billableAmountCents,
+      workspace.currency
+    ),
+  });
+
   const clients: ClientBillingSummary[] = [];
   let totalSeconds = 0;
   let totalBillableSeconds = 0;
   let totalBillableAmountCents = 0;
 
   for (const [clientId, clientData] of clientGroups) {
-    const persons: PersonBillingSummary[] = [];
+    const projects: ProjectBillingSummary[] = [];
+    // Aggregate person totals across all projects for the client-level rollup.
+    const clientPersons = new Map<number, PersonData>();
     let clientTotalSeconds = 0;
     let clientBillableSeconds = 0;
     let clientBillableAmountCents = 0;
 
-    for (const [userId, personData] of clientData.persons) {
-      const person: PersonBillingSummary = {
-        userId,
-        name: userMap.get(userId) ?? `User ${userId}`,
-        totalSeconds: personData.totalSeconds,
-        totalHoursDecimal: secondsToHoursDecimal(personData.totalSeconds),
-        totalHoursFormatted: secondsToHHMMSS(personData.totalSeconds),
-        billableSeconds: personData.billableSeconds,
-        billableHoursDecimal: secondsToHoursDecimal(personData.billableSeconds),
-        billableHoursFormatted: secondsToHHMMSS(personData.billableSeconds),
-        hourlyRateCents: personData.hourlyRateCents,
-        hourlyRateFormatted: personData.hourlyRateCents
-          ? centsToAmount(personData.hourlyRateCents, workspace.currency) + "/hr"
-          : "N/A",
-        billableAmountCents: personData.billableAmountCents,
+    for (const [projectId, projectData] of clientData.projects) {
+      const persons: PersonBillingSummary[] = [];
+      let projectTotalSeconds = 0;
+      let projectBillableSeconds = 0;
+      let projectBillableAmountCents = 0;
+
+      for (const [userId, personData] of projectData.persons) {
+        persons.push(buildPerson(userId, personData));
+        projectTotalSeconds += personData.totalSeconds;
+        projectBillableSeconds += personData.billableSeconds;
+        projectBillableAmountCents += personData.billableAmountCents;
+
+        const rollup = clientPersons.get(userId) ?? {
+          totalSeconds: 0,
+          billableSeconds: 0,
+          billableAmountCents: 0,
+          hourlyRateCents: null,
+        };
+        rollup.totalSeconds += personData.totalSeconds;
+        rollup.billableSeconds += personData.billableSeconds;
+        rollup.billableAmountCents += personData.billableAmountCents;
+        if (personData.hourlyRateCents !== null) {
+          rollup.hourlyRateCents = personData.hourlyRateCents;
+        }
+        clientPersons.set(userId, rollup);
+      }
+
+      persons.sort((a, b) => a.name.localeCompare(b.name));
+
+      projects.push({
+        projectId,
+        projectName:
+          projectId !== null
+            ? projectMap.get(projectId) ?? `Project ${projectId}`
+            : "No Project",
+        totalSeconds: projectTotalSeconds,
+        totalHoursDecimal: secondsToHoursDecimal(projectTotalSeconds),
+        totalHoursFormatted: secondsToHHMMSS(projectTotalSeconds),
+        billableSeconds: projectBillableSeconds,
+        billableHoursDecimal: secondsToHoursDecimal(projectBillableSeconds),
+        billableHoursFormatted: secondsToHHMMSS(projectBillableSeconds),
+        billableAmountCents: projectBillableAmountCents,
         billableAmountFormatted: centsToAmount(
-          personData.billableAmountCents,
+          projectBillableAmountCents,
           workspace.currency
         ),
-      };
+        persons,
+      });
 
-      persons.push(person);
-      clientTotalSeconds += personData.totalSeconds;
-      clientBillableSeconds += personData.billableSeconds;
-      clientBillableAmountCents += personData.billableAmountCents;
+      clientTotalSeconds += projectTotalSeconds;
+      clientBillableSeconds += projectBillableSeconds;
+      clientBillableAmountCents += projectBillableAmountCents;
     }
 
+    projects.sort((a, b) => {
+      if (a.projectId === null) return 1;
+      if (b.projectId === null) return -1;
+      return a.projectName.localeCompare(b.projectName);
+    });
+
+    const persons: PersonBillingSummary[] = [];
+    for (const [userId, personData] of clientPersons) {
+      persons.push(buildPerson(userId, personData));
+    }
     persons.sort((a, b) => a.name.localeCompare(b.name));
 
     clients.push({
@@ -140,6 +214,7 @@ export function buildInvoiceReport(
         clientBillableAmountCents,
         workspace.currency
       ),
+      projects,
       persons,
     });
 

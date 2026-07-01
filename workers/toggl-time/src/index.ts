@@ -146,8 +146,10 @@ worker.tool("monthlyInvoice", {
     }
 
     const projectToClientMap = new Map<number, number | null>();
+    const projectMap = new Map<number, string>();
     for (const project of projects) {
       projectToClientMap.set(project.id, project.client_id ?? project.cid);
+      projectMap.set(project.id, project.name);
     }
 
     const allClients = await client.getWorkspaceClients(workspaceId);
@@ -172,7 +174,8 @@ worker.tool("monthlyInvoice", {
       },
       userMap,
       clientMap,
-      projectToClientMap
+      projectToClientMap,
+      projectMap
     );
 
     return formatInvoiceReport(report, outputFormat);
