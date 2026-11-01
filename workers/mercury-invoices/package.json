@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "tsc && node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@notionhq/workers": "latest"

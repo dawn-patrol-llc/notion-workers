@@ -38,7 +38,7 @@ export interface MercuryLineItem {
 }
 
 export interface MercuryCreateInvoiceRequest {
-  invoiceNumber?: string;
+  invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
   customerId: string;
@@ -53,7 +53,7 @@ export interface MercuryCreateInvoiceRequest {
   poNumber?: string;
   servicePeriodStartDate?: string;
   servicePeriodEndDate?: string;
-  sendEmailOption: "DontSend" | "SendNow";
+  sendEmailOption: "DontSend";
 }
 
 export type MercuryInvoiceStatus =

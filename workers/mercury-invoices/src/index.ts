@@ -2,8 +2,8 @@ import { Worker } from "@notionhq/workers";
 import {
   createInvoice,
   getInvoice,
-  listInvoices,
-  listCustomers,
+  listAllInvoices,
+  listAllCustomers,
   buildInvoicePaymentUrl,
 } from "./mercury.js";
 
@@ -22,9 +22,9 @@ worker.tool("createInvoice", {
         description: "Mercury customer UUID to invoice",
       },
       invoiceNumber: {
-        anyOf: [{ type: "string" }, { type: "null" }],
+        type: "string",
         description:
-          "A payer-facing invoice number/identifier (e.g. INV-2026-03-001). Pass null to auto-generate.",
+          "Required stable payer-facing invoice number, reused for reconciliation after an uncertain result. Never pass null or change the number to retry.",
       },
       dueDate: {
         type: "string",
@@ -108,7 +108,7 @@ worker.tool("createInvoice", {
     servicePeriodEndDate,
   }: {
     customerId: string;
-    invoiceNumber: string | null;
+    invoiceNumber: string;
     dueDate: string;
     lineItems: Array<{
       name: string;
@@ -131,7 +131,7 @@ worker.tool("createInvoice", {
 
     const invoice = await createInvoice({
       customerId,
-      invoiceNumber: invoiceNumber ?? `INV-${today}`,
+      invoiceNumber,
       invoiceDate: today,
       dueDate,
       destinationAccountId,
@@ -160,7 +160,8 @@ worker.tool("createInvoice", {
       status: invoice.status,
       amount: invoice.amount,
       paymentUrl,
-      message: `Invoice created successfully. Payment link: ${paymentUrl}`,
+      message: `Unsent invoice created for review. Payment link: ${paymentUrl}`,
+      manualVerificationRequired: ["automated reminders on", "recurring off", "one-time payment"],
     });
   },
 });
@@ -191,6 +192,10 @@ worker.tool("getInvoice", {
       amount: invoice.amount,
       dueDate: invoice.dueDate,
       invoiceDate: invoice.invoiceDate,
+      customerId: invoice.customerId,
+      payerMemo: invoice.payerMemo ?? null,
+      servicePeriodStartDate: invoice.servicePeriodStartDate ?? null,
+      servicePeriodEndDate: invoice.servicePeriodEndDate ?? null,
       lineItems: invoice.lineItems,
       paymentUrl,
     });
@@ -214,7 +219,7 @@ worker.tool("listCustomers", {
     additionalProperties: false,
   },
   execute: async ({ searchName }: { searchName: string | null }) => {
-    const { customers } = await listCustomers(100);
+    const customers = await listAllCustomers();
 
     const filtered = searchName
       ? customers.filter((c) =>
@@ -266,7 +271,7 @@ worker.tool("listInvoices", {
     // Resolve customer name to ID if provided
     let customerIds: Set<string> | null = null;
     if (customerName) {
-      const { customers } = await listCustomers(100);
+      const customers = await listAllCustomers();
       const matches = customers.filter((c) =>
         c.name.toLowerCase().includes(customerName.toLowerCase())
       );
@@ -279,7 +284,7 @@ worker.tool("listInvoices", {
       }
     }
 
-    const { invoices } = await listInvoices({ limit: 100 });
+    const invoices = await listAllInvoices();
 
     const filtered = invoices.filter((inv) => {
       if (customerIds && !customerIds.has(inv.customerId)) return false;
